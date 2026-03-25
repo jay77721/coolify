@@ -1443,3 +1443,27 @@ services:
           else
             {:ok, _} = Supavisor.Tenants.create_tenant(params)
           end
+
+  supabase-mcp:
+    image: supabase/postgres-mcp:latest
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      - SERVICE_URL_SUPABASEMCP_8000
+      - DATABASE_URL=postgres://postgres:${SERVICE_PASSWORD_POSTGRES}@${POSTGRES_HOSTNAME:-supabase-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-postgres}
+      - 'MCP_DOMAIN=${MCP_DOMAIN}'
+      - 'MCP_ALLOWED_IPS=${MCP_ALLOWED_IPS:-10.0.0.0/24}'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.supabase-mcp-${COOLIFY_CONTAINER_NAME:-default}.rule=Host(`${MCP_DOMAIN:-mcp.${COOLIFY_DOMAIN:-localhost}}`)"
+      - "traefik.http.routers.supabase-mcp-${COOLIFY_CONTAINER_NAME:-default}.entrypoints=websecure"
+      - "traefik.http.routers.supabase-mcp-${COOLIFY_CONTAINER_NAME:-default}.tls=true"
+      - "traefik.http.services.supabase-mcp-${COOLIFY_CONTAINER_NAME:-default}.loadbalancer.server.port=8000"
+      - "traefik.http.routers.supabase-mcp-${COOLIFY_CONTAINER_NAME:-default}.middlewares=mcp-ipwhitelist-${COOLIFY_CONTAINER_NAME:-default}"
+      - "traefik.http.middlewares.mcp-ipwhitelist-${COOLIFY_CONTAINER_NAME:-default}.ipallowlist.sourcerange=${MCP_ALLOWED_IPS:-10.0.0.0/24}"
